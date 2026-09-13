@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Solar Odyssey | Interactive Universe</title>
+  <!-- Local copy keeps the project usable without an Internet connection. -->
+  <script src="aframe.min.js"></script>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; overflow: hidden; font-family: Inter, system-ui, sans-serif; background:#02030b; }
+    #loadingStatus, #assetError { position:fixed; z-index:30; left:50%; top:50%; transform:translate(-50%,-50%); width:min(420px,calc(100vw - 40px)); padding:16px 18px; text-align:center; color:#eaf6ff; background:#071226ee; border:1px solid #6be0ff88; border-radius:14px; box-shadow:0 12px 38px #000a; }
+    #assetError { display:none; border-color:#ff8b8b99; color:#ffd7d7; }
+    #hud { position:fixed; z-index:10; top:20px; left:20px; width:min(350px,calc(100vw - 40px)); padding:16px 18px; color:#eaf6ff; background:linear-gradient(135deg,#071226e8,#11102be8); border:1px solid #6be0ff88; border-radius:18px; box-shadow:0 12px 38px #000a, inset 0 1px #ffffff18; backdrop-filter:blur(10px); }
+    .eyebrow { letter-spacing:.18em; font-size:10px; color:#7ee9ff; font-weight:800; }
+    h1 { margin:4px 0 7px; font-size:24px; letter-spacing:.04em; }
+    #hud p { margin:0; font-size:13px; line-height:1.5; color:#c5d9ee; }
+    #status { margin-top:10px!important; padding-top:10px; border-top:1px solid #7ee9ff33; color:#ffe992!important; font-weight:700; }
+    #nav { position:fixed; z-index:10; bottom:21px; left:20px; display:flex; flex-wrap:wrap; gap:7px; max-width:410px; }
+    #nav button { color:#dff9ff; background:#0b1b36dd; border:1px solid #65dffb77; border-radius:999px; padding:8px 11px; cursor:pointer; font:600 12px inherit; transition:.2s; }
+    #nav button:hover { transform:translateY(-2px); background:#155175; border-color:#a3f1ff; }
+    #card { position:fixed; z-index:10; right:20px; top:20px; width:245px; padding:14px 42px 14px 16px; color:#eaf6ff; background:#071226dc; border-left:3px solid #ffc95c; border-radius:10px; display:none; }
+    #card h2 { margin:0 0 5px; font-size:17px; color:#ffe393; } #card p { margin:0; font-size:13px; line-height:1.45; color:#c5d9ee; }
+    #closeCard { position:absolute; top:6px; right:8px; border:0; background:transparent; color:#dff9ff; font-size:24px; line-height:1; cursor:pointer; padding:4px 7px; }
+    #touchControls { position:fixed; z-index:11; right:18px; bottom:20px; display:grid; grid-template-columns:repeat(3,44px); grid-template-rows:repeat(2,44px); gap:5px; }
+    #touchControls button { border:1px solid #65dffb99; border-radius:12px; color:#dff9ff; background:#0b1b36dd; font-size:20px; touch-action:none; user-select:none; }
+    #touchControls button[data-move="forward"] { grid-column:2; } #touchControls button[data-move="left"] { grid-column:1; grid-row:2; }
+    #touchControls button[data-move="back"] { grid-column:2; grid-row:2; } #touchControls button[data-move="right"] { grid-column:3; grid-row:2; }
+    @media(min-width:701px) { #touchControls { display:none; } }
+    @media(max-width:700px) { #card { top:auto; bottom:158px; right:12px; width:calc(100vw - 74px); max-width:245px; } #hud { top:12px; left:12px; width:calc(100vw - 56px); padding:12px 14px; } #nav { left:12px; bottom:12px; max-width:calc(100vw - 150px); } #nav button { padding:8px 9px; } }
+  </style>
+</head>
+<body>
+  <div id="loadingStatus" role="status">กำลังโหลดฉากและไฟล์ประกอบ…</div>
+  <div id="assetError" role="alert"></div>
+  <section id="hud">
+    <div class="eyebrow">INTERACTIVE SOLAR SYSTEM</div>
+    <h1>SOLAR ODYSSEY</h1>
+    <p>คลิกดาวเพื่อดูข้อมูล • คลิก ISS เพื่อดูข้อมูล/ทำภารกิจ • ใช้ W A S D หรือปุ่มควบคุมเพื่อเคลื่อนที่ • ลากเมาส์หรือนิ้วเพื่อมองรอบทิศ</p>
+    <p id="status">ภารกิจ: สแกน Earth และ Mars เพื่อปลดล็อกยาน ISS</p>
+  </section>
+  <section id="card" aria-live="polite"><button id="closeCard" type="button" aria-label="ปิดข้อมูล">×</button><h2 id="cardTitle"></h2><p id="cardText"></p></section>
+  <nav id="nav" aria-label="Jump to a planet">
+    <button data-go="0 2.3 9">HOME</button><button data-go="-4 2.4 -13">EARTH</button>
+    <button data-go="4 2.2 -19">MARS</button><button data-go="-5 3 -27">JUPITER</button>
+    <button data-go="5 3 -35">SATURN</button>
+  </nav>
+  <div id="touchControls" aria-label="ปุ่มควบคุมการเดิน">
+    <button type="button" data-move="forward" aria-label="เดินไปข้างหน้า">▲</button>
+    <button type="button" data-move="left" aria-label="เดินไปทางซ้าย">◀</button>
+    <button type="button" data-move="back" aria-label="เดินถอยหลัง">▼</button>
+    <button type="button" data-move="right" aria-label="เดินไปทางขวา">▶</button>
+  </div>
+
+  <a-scene renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true" loading-screen="dotsColor: #7ee9ff; backgroundColor: #02030b">
+    <a-assets timeout="15000">
+      <!-- Project-local textures: Solar System Scope (CC BY 4.0), noted in README. -->
+      <img id="stars" src="images/stars-360.jpg" crossorigin="anonymous">
+      <img id="sunMap" src="textures/sun.jpg" crossorigin="anonymous">
+      <img id="earthMap" src="textures/earth-atmos.jpg" crossorigin="anonymous">
+      <img id="moonMap" src="textures/moon.jpg" crossorigin="anonymous">
+      <img id="jupiterMap" src="textures/jupiter.jpg" crossorigin="anonymous">
+      <img id="saturnMap" src="textures/saturn.jpg" crossorigin="anonymous">
+      <img id="saturnRing" src="textures/saturn-ring.png" crossorigin="anonymous">
+      <!-- NASA 3D Resources model, used locally instead of a remote URL. -->
+      <a-asset-item id="issModel" src="models/nasa-iss.glb"></a-asset-item>
+      <a-asset-item id="probeModel" src="models/satellite.gltf"></a-asset-item>
+    </a-assets>
+
+    <!-- A panoramic star map creates a true surrounding universe. -->
+    <a-sky src="#stars" radius="100"></a-sky>
+    <a-light type="ambient" intensity=".35" color="#9bb7ff"></a-light>
+    <a-light type="point" position="0 5 -10" color="#ffd27a" intensity="9" distance="55" decay="1.4"></a-light>
+
+    <!-- Spaceport: a polished starting area that grounds the exploration activity. -->
+    <a-cylinder position="0 0 3" radius="5.2" height=".28" material="color:#10243e; metalness:.95; roughness:.22"></a-cylinder>
+    <a-ring position="0 .15 3" rotation="-90 0 0" radius-inner="4.75" radius-outer="4.86" material="color:#48dfff; emissive:#116986; emissiveIntensity:1"></a-ring>
+    <a-cylinder position="0 .18 3" radius="3.65" height=".08" material="color:#0c1428; metalness:.7; roughness:.32"></a-cylinder>
+    <a-text value="SOLAR ODYSSEY  •  EXPLORATION DECK" align="center" color="#91efff" width="7" position="0 .27 .5" rotation="-90 0 0"></a-text>
+
+    <!-- The Sun is the central light source and an animated textured object. -->
+    <a-sphere id="sun" class="clickable celestial" position="0 4 -10" radius="2.15" src="#sunMap" material="emissive:#ff8c21; emissiveIntensity:1.5; roughness:1" animation="property:rotation; to:0 360 0; dur:16000; loop:true; easing:linear">
+      <a-sphere radius="2.38" material="color:#ff9d25; transparent:true; opacity:.12; side:back"></a-sphere>
+    </a-sphere>
+    <a-text value="SUN • THE HEART OF OUR SYSTEM" align="center" color="#ffe2a0" width="5" position="0 7 -10"></a-text>
+
+    <!-- Orbit bands make the Solar System layout readable at a glance. -->
+    <a-torus position="0 .05 -10" rotation="90 0 0" radius="7.2" radius-tubular=".012" material="color:#416a94; emissive:#123250"></a-torus>
+    <a-torus position="0 .04 -10" rotation="90 0 0" radius="12.2" radius-tubular=".012" material="color:#416a94; emissive:#123250"></a-torus>
+    <a-torus position="0 .03 -10" rotation="90 0 0" radius="18.5" radius-tubular=".012" material="color:#416a94; emissive:#123250"></a-torus>
+    <a-torus position="0 .02 -10" rotation="90 0 0" radius="25" radius-tubular=".012" material="color:#416a94; emissive:#123250"></a-torus>
+
+    <!-- Inner planets: each uses position, rotation, scale, material/texture and click interaction. -->
+    <a-sphere class="clickable celestial" data-name="Mercury" data-info="ดาวเคราะห์หินที่อยู่ใกล้ดวงอาทิตย์ที่สุด" position="-5.9 1.1 -7.2" radius=".38" material="color:#9f8d79; roughness:1" animation="property:rotation; to:0 360 0; dur:6000; loop:true; easing:linear"></a-sphere>
+    <a-sphere class="clickable celestial" data-name="Venus" data-info="โลกหินร้อนที่มีชั้นบรรยากาศหนาแน่น" position="5.8 1.45 -8.7" radius=".72" material="color:#dbac63; roughness:.9" animation="property:rotation; to:0 -360 0; dur:9000; loop:true; easing:linear"></a-sphere>
+
+    <!-- Earth has a real color texture, cloud-like atmosphere, moon orbit, and mission scan. -->
+    <a-entity id="earthOrbit" position="0 0 -10" animation="property:rotation; to:0 360 0; dur:30000; loop:true; easing:linear">
+      <a-sphere id="earth" class="clickable mission celestial" data-name="Earth" data-info="บ้านของเรา: ดาวเคราะห์สีน้ำเงินเพียงดวงเดียวที่รู้ว่ามีชีวิต" position="-11.2 2.2 4.3" rotation="15 0 0" radius="1.12" src="#earthMap" material="roughness:.82; metalness:0">
+        <a-sphere radius="1.17" material="color:#56c7ff; transparent:true; opacity:.13; side:back"></a-sphere>
+      </a-sphere>
+      <a-entity position="-11.2 2.2 4.3" animation="property:rotation; to:0 360 0; dur:6500; loop:true; easing:linear"><a-sphere position="1.7 .12 0" radius=".28" src="#moonMap" material="roughness:1"></a-sphere></a-entity>
+    </a-entity>
+
+    <!-- Mars is the second required mission scan. -->
+    <a-entity id="marsOrbit" position="0 0 -10" animation="property:rotation; to:0 -360 0; dur:42000; loop:true; easing:linear">
+      <a-sphere id="mars" class="clickable mission celestial" data-name="Mars" data-info="ดาวเคราะห์สีแดง เป้าหมายสำคัญของการสำรวจมนุษย์" position="15.5 1.55 5.2" radius=".88" material="color:#c76243; roughness:.95" animation__spin="property:rotation; to:0 360 0; dur:11000; loop:true; easing:linear" animation__float="property:position; from:15.5 1.25 5.2; to:15.5 1.85 5.2; dur:2100; dir:alternate; loop:true"></a-sphere>
+    </a-entity>
+
+    <!-- Outer system: large textured gas giants and a ringed Saturn visual. -->
+    <a-entity id="jupiterOrbit" position="0 0 -10" animation="property:rotation; to:0 360 0; dur:60000; loop:true; easing:linear">
+      <a-sphere class="clickable celestial" data-name="Jupiter" data-info="ดาวเคราะห์ที่ใหญ่ที่สุด พร้อมพายุ Great Red Spot" position="-17.3 3.1 -7.1" radius="2.05" src="#jupiterMap" material="roughness:.9" animation="property:rotation; to:0 360 0; dur:18000; loop:true; easing:linear"></a-sphere>
+    </a-entity>
+    <a-entity id="saturnOrbit" position="0 0 -10" animation="property:rotation; to:0 -360 0; dur:76000; loop:true; easing:linear">
+      <a-entity class="clickable celestial" data-name="Saturn" data-info="ดาวเคราะห์วงแหวนอันโดดเด่น สร้างจากเศษน้ำแข็งและหิน" position="21.5 3 -11">
+        <a-sphere radius="1.65" src="#saturnMap" material="roughness:.9" animation="property:rotation; to:0 360 0; dur:16000; loop:true; easing:linear"></a-sphere>
+        <a-ring rotation="-72 0 0" radius-inner="2" radius-outer="3.25" src="#saturnRing" material="transparent:true; alphaTest:.08; side:double; roughness:1"></a-ring>
+      </a-entity>
+    </a-entity>
+    <a-sphere class="clickable celestial" data-name="Uranus" data-info="ดาวเคราะห์น้ำแข็งสีฟ้าที่หมุนเอียงเกือบตะแคง" position="-12 2.15 -39" radius="1.25" material="color:#78d4d8; roughness:.75" animation="property:rotation; to:0 360 0; dur:14000; loop:true; easing:linear"></a-sphere>
+    <a-sphere class="clickable celestial" data-name="Neptune" data-info="ดาวเคราะห์สีน้ำเงินเข้มที่มีลมเร็วมาก" position="13 2.3 -45" radius="1.22" material="color:#315ac9; roughness:.78" animation="property:rotation; to:0 -360 0; dur:15000; loop:true; easing:linear"></a-sphere>
+
+    <!-- Asteroid belt: decorative objects give depth around the outer planets. -->
+    <a-entity position="0 1 -26" rotation="0 12 0">
+      <a-dodecahedron position="-8 0 -2" radius=".25" material="color:#5f5d6c; roughness:1"></a-dodecahedron>
+      <a-dodecahedron position="-5 .7 4" radius=".18" material="color:#786b62; roughness:1"></a-dodecahedron>
+      <a-dodecahedron position="0 .25 6" radius=".32" material="color:#69616a; roughness:1"></a-dodecahedron>
+      <a-dodecahedron position="5 .9 3" radius=".2" material="color:#8b786b; roughness:1"></a-dodecahedron>
+      <a-dodecahedron position="8 .4 -3" radius=".28" material="color:#605864; roughness:1"></a-dodecahedron>
+    </a-entity>
+
+    <!-- NASA ISS is the final reward. Hitbox stays unscaled so the last click is easy to hit. -->
+    <a-entity id="iss" class="clickable" data-name="International Space Station" data-info="สถานีอวกาศนานาชาติ: จุดหมายสุดท้ายของภารกิจสำรวจระบบสุริยะ" position="0 3.1 -3">
+      <a-entity gltf-model="#issModel" rotation="0 28 0" scale=".012 .012 .012" animation__turn="property:rotation; to:0 388 0; dur:17000; loop:true; easing:linear"></a-entity>
+      <a-sphere id="issHit" class="clickable" radius="1.35" material="color:#7ee9ff; transparent:true; opacity:.08; shader:flat"></a-sphere>
+      <a-text id="issLabel" value="ISS • LOCKED\nScan Earth + Mars" align="center" color="#ffe58f" width="8" position="0 1.85 0"></a-text>
+    </a-entity>
+    <a-entity gltf-model="#probeModel" position="-3 2.2 -5" rotation="10 0 12" scale=".55 .55 .55" animation="property:position; from:-3 1.7 -5; to:-3 2.7 -5; dur:2400; dir:alternate; loop:true; easing:easeInOutSine"></a-entity>
+
+    <!-- Camera offers both desktop exploration and VR cursor interaction. -->
+    <a-entity id="rig" position="0 1.65 10">
+      <a-camera look-controls wasd-controls="acceleration:35">
+        <a-cursor raycaster="objects:.clickable" geometry="primitive:ring; radiusInner:.012; radiusOuter:.022" material="color:#dffbff; shader:flat" animation__enter="property:scale; startEvents:mouseenter; to:1.55 1.55 1.55; dur:120" animation__leave="property:scale; startEvents:mouseleave; to:1 1 1; dur:120"></a-cursor>
+        <a-entity cursor="rayOrigin: mouse; fuse: false" raycaster="objects: .clickable"></a-entity>
+      </a-camera>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    // Clicking a celestial object opens its information card and gives a scale feedback animation.
+    const scanned = new Set();
+    const scene = document.querySelector('a-scene'), assets = document.querySelector('a-assets');
+    const loadingStatus = document.querySelector('#loadingStatus'), assetError = document.querySelector('#assetError');
+    const card = document.querySelector('#card'), title = document.querySelector('#cardTitle'), text = document.querySelector('#cardText');
+    const status = document.querySelector('#status'), iss = document.querySelector('#iss'), issLabel = document.querySelector('#issLabel');
+    function showInfo(name, info) { title.textContent = name; text.textContent = info; card.style.display = 'block'; }
+    function setStatus(message) { status.textContent = message; }
+    document.querySelector('#closeCard').addEventListener('click', () => { card.style.display = 'none'; });
+    document.querySelectorAll('.celestial').forEach(el => el.addEventListener('click', () => {
+      showInfo(el.dataset.name, el.dataset.info);
+      el.setAttribute('animation__select', 'property:scale; from:1 1 1; to:1.18 1.18 1.18; dur:180; dir:alternate; loop:2');
+      if (el.classList.contains('mission')) {
+        scanned.add(el.id);
+        if (scanned.size === 2) {
+          issLabel.setAttribute('value', 'ISS • READY FOR DOCKING\nClick to complete mission');
+          issLabel.setAttribute('color', '#8dffb2');
+          document.querySelector('#issHit').setAttribute('material', 'color:#8dffb2; transparent:true; opacity:.2; shader:flat');
+          setStatus('สแกนครบแล้ว! คลิก ISS เพื่อจบภารกิจ');
+        }
+        else setStatus('สแกน ' + el.dataset.name + ' แล้ว • เหลืออีก 1 ดวง');
+      }
+    }));
+    // Final mission interaction is gated by the two planet scans.
+    function tryCompleteMission(event) {
+      if (event) event.stopPropagation();
+      showInfo(iss.dataset.name, iss.dataset.info);
+      if (scanned.size === 2) {
+        issLabel.setAttribute('value', 'MISSION COMPLETE\nWelcome aboard ISS');
+        issLabel.setAttribute('color', '#aaf8ff');
+        document.querySelector('#issHit').setAttribute('material', 'color:#8dffb2; transparent:true; opacity:.22; shader:flat');
+        setStatus('ภารกิจสำเร็จ — คุณได้สำรวจระบบสุริยะแล้ว!');
+        showInfo('International Space Station', 'สถานีอวกาศนานาชาติ: รางวัลของนักสำรวจหลังเก็บข้อมูลโลกและดาวอังคารครบ');
+      } else setStatus('ISS ยังล็อกอยู่: สแกน Earth และ Mars ก่อน');
+    }
+    iss.addEventListener('click', tryCompleteMission);
+    document.querySelector('#issHit').addEventListener('click', event => { event.stopPropagation(); tryCompleteMission(event); });
+    // HUD buttons are an optional fast-travel aid; WASD remains available for free exploration.
+    document.querySelectorAll('[data-go]').forEach(button => button.addEventListener('click', () => {
+      document.querySelector('#rig').setAttribute('position', button.dataset.go);
+      setStatus('Fast travel พร้อมแล้ว — ใช้เมาส์มองหาเป้าหมายและคลิกเพื่อสำรวจ');
+    }));
+
+    // Touch movement supplements WASD; desktop keyboard controls remain unchanged.
+    const touchVector = new Set(), rig = document.querySelector('#rig');
+    const touchMap = { forward: [0, -1], back: [0, 1], left: [-1, 0], right: [1, 0] };
+    document.querySelectorAll('#touchControls button').forEach(button => {
+      const move = () => { if (!rig.object3D) return; const [x, z] = touchMap[button.dataset.move]; const pos = rig.object3D.position; pos.x += x * .12; pos.z += z * .12; };
+      button.addEventListener('pointerdown', event => { event.preventDefault(); touchVector.add(button.dataset.move); button.setPointerCapture(event.pointerId); });
+      ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(type => button.addEventListener(type, () => touchVector.delete(button.dataset.move)));
+      button._move = move;
+    });
+    function moveTouch() { touchVector.forEach(name => document.querySelector(`#touchControls [data-move="${name}"]`)._move()); requestAnimationFrame(moveTouch); }
+    moveTouch();
+
+    // Keep users informed when local assets are loading or fail.
+    function hideLoading() { loadingStatus.style.display = 'none'; }
+    function showAssetError(message) { assetError.textContent = message; assetError.style.display = 'block'; loadingStatus.style.display = 'none'; }
+    assets.addEventListener('loaded', hideLoading);
+    assets.addEventListener('timeout', () => showAssetError('โหลดไฟล์ประกอบไม่สำเร็จภายในเวลาที่กำหนด กรุณาตรวจสอบไฟล์ local แล้วรีเฟรชหน้าเว็บ'));
+    assets.querySelectorAll('img, a-asset-item').forEach(asset => asset.addEventListener('error', () => showAssetError(`โหลดไฟล์ ${asset.getAttribute('src') || 'asset'} ไม่สำเร็จ`)));
+    scene.addEventListener('loaded', () => { if (assets.hasLoaded) hideLoading(); });
+  </script>
+</body>
+</html>
