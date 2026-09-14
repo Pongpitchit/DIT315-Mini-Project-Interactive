@@ -57,3 +57,25 @@ tmp/
 # Local Development
 # =========================
 .local/
+
+# =========================
+# Note 
+# =========================
+.prompt
+.prompt.md
+.slide
+.slide.md
+.update
+.update.md
+.mission
+.mission.md
+.plan
+.plan.md
+.report
+.report.md
+.review
+.review.md
+.summary
+.summary.md
+.todo
+.todo.md
